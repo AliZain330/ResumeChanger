@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Preview</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Preview</h1>
+
+      <div class="card">
+        <h2>{{ resume.basics.name }}</h2>
+        <p>{{ resume.basics.email }}</p>
+      </div>
+
+      <div class="card">
+        <h3>Summary</h3>
+        <p>{{ resume.summary }}</p>
+      </div>
+
+      <div class="actions">
+        <a href="/">Back</a>
+      </div>
+    </div>
+  </body>
+</html>
