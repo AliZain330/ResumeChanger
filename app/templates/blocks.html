@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blocks</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Confirm Auto Tailoring</h1>
+
+      <form method="post" action="/tailor">
+        <input type="hidden" name="file_id" value="{{ file_id }}" />
+
+        <label>Job Description</label>
+        <textarea name="job_description" rows="8" required>{{ job_description }}</textarea>
+
+        <div class="card">
+          <p>Total blocks: {{ blocks|length }}</p>
+          <p>Protected blocks: {{ protected_ids|length }}</p>
+          <p>Rewrite candidates: {{ rewrite_count }}</p>
+        </div>
+
+        <h2>Blocks</h2>
+        {% for block in blocks %}
+        <div class="card">
+          <p>
+            <strong>{{ block.kind }} — {{ block.id }}</strong>
+            {% if block.id in protected_ids %}(protected){% else %}(rewrite){% endif %}
+          </p>
+          <p>{{ block.text }}</p>
+        </div>
+        {% endfor %}
+
+        <button type="submit">Auto Tailor</button>
+      </form>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tailoring Result</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Tailoring Result</h1>
+
+      {% if warning %}
+      <div class="card">
+        <p>{{ warning }}</p>
+      </div>
+      {% endif %}
+
+      <div class="card">
+        <p>Total blocks: {{ total_blocks }}</p>
+        <p>Protected blocks: {{ protected_count }}</p>
+        <p>Rewrite candidates: {{ rewrite_count }}</p>
+        <p>Rewritten: {{ rewritten_count }}</p>
+        <p>Skipped: {{ skipped_count }}</p>
+      </div>
+
+      <div class="actions">
+        <a href="/download/{{ file_id }}">Download tailored DOCX</a>
+      </div>
+    </div>
+  </body>
+</html>

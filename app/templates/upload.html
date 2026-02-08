@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Upload DOCX</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Upload Resume</h1>
+
+      <form method="post" action="/extract" enctype="multipart/form-data">
+        <label>Resume (.docx)</label>
+        <input type="file" name="file" accept=".docx" required />
+
+        <label>Job Description</label>
+        <textarea name="job_description" rows="8" placeholder="Paste the job description here..." required></textarea>
+
+        <button type="submit">Extract Blocks</button>
+      </form>
+    </div>
+  </body>
+</html>
