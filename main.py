@@ -154,3 +154,5 @@ def debug_gemini():
         model=current.gemini_model,
     )
     return temp_rewriter.smoke_test()
+
+#ok whats next
