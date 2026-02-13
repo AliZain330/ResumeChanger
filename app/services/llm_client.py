@@ -39,6 +39,14 @@ def _should_retry(status_code: int | None) -> bool:
     return status_code in {429, 500, 502, 503, 504}
 
 
+def _should_fallback_model(exc: Exception) -> bool:
+    status_code = _get_status_code(exc)
+    if status_code in {400, 404}:
+        return True
+    message = str(exc).lower()
+    return "model" in message and ("not found" in message or "unsupported" in message)
+
+
 def _safe_response_summary(response: object) -> dict:
     candidates = getattr(response, "candidates", None)
     return {
@@ -195,6 +203,35 @@ class GeminiRewriter:
         self._api_key = api_key
         self._model = model
 
+    def _model_candidates(self) -> List[str]:
+        fallback = ["gemini-2.5-flash", "gemini-2.0-flash"]
+        candidates: List[str] = []
+        for model_name in [self._model, *fallback]:
+            if model_name and model_name not in candidates:
+                candidates.append(model_name)
+        return candidates
+
+    def _generate_with_fallback(self, prompt: str, prompt_length: int, blocks_count: int) -> Tuple[str, Dict[str, object]]:
+        last_exc: Exception | None = None
+        for model_name in self._model_candidates():
+            try:
+                text, response_meta = _call_llm_with_retries(
+                    prompt,
+                    api_key=self._api_key,
+                    model=model_name,
+                    prompt_length=prompt_length,
+                    blocks_count=blocks_count,
+                )
+                response_meta["model_used"] = model_name
+                return text, response_meta
+            except Exception as exc:
+                last_exc = exc
+                if not _should_fallback_model(exc):
+                    raise
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("No Gemini models available for request")
+
     def _build_prompt(self, job_description: str, blocks: Iterable[RewriteCandidateBlock]) -> str:
         blocks_payload = [
             {
@@ -238,10 +275,8 @@ class GeminiRewriter:
         prompt_length = len(prompt)
 
         for attempt in range(2):
-            response, response_meta = _call_llm_with_retries(
-                prompt,
-                api_key=self._api_key,
-                model=self._model,
+            response, response_meta = self._generate_with_fallback(
+                prompt=prompt,
                 prompt_length=prompt_length,
                 blocks_count=len(blocks),
             )
@@ -302,16 +337,14 @@ class GeminiRewriter:
         prompt = 'Return valid JSON only: {"ok": true}'
         prompt_length = len(prompt)
         try:
-            text, response_meta = _call_llm_with_retries(
-                prompt,
-                api_key=self._api_key,
-                model=self._model,
+            text, response_meta = self._generate_with_fallback(
+                prompt=prompt,
                 prompt_length=prompt_length,
                 blocks_count=0,
             )
             return {
                 "success": True,
-                "model": self._model,
+                "model": response_meta.get("model_used", self._model),
                 "response_text_len": response_meta.get("response_text_len", len(text)),
             }
         except Exception as exc:

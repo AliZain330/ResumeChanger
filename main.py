@@ -1,10 +1,14 @@
 import logging
 import os
+import secrets
+import time
+from collections import defaultdict, deque
 from pathlib import Path
+from typing import Deque, Dict
 from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -38,18 +42,92 @@ if vertex_env_set:
 settings = get_settings()
 has_gemini_key = bool(settings.gemini_api_key)
 has_google_key = bool(os.getenv("GOOGLE_API_KEY", "").strip())
+auth_enabled = bool(settings.app_username and settings.app_password)
 logger.info(
-    "Gemini config: GEMINI_API_KEY present=%s GOOGLE_API_KEY present=%s GEMINI_MODEL=%s vertex_mode_env_set=%s vertex_mode_env_value=%s",
+    "Gemini config: GEMINI_API_KEY present=%s GOOGLE_API_KEY present=%s GEMINI_MODEL=%s vertex_mode_env_set=%s vertex_mode_env_value=%s auth_enabled=%s rate_limit_per_minute=%s file_retention_hours=%s",
     has_gemini_key,
     has_google_key,
     settings.gemini_model,
     vertex_env_set,
     vertex_env_value or "unset",
+    auth_enabled,
+    settings.rate_limit_per_minute,
+    settings.file_retention_hours,
 )
 if has_google_key:
     logger.warning("GOOGLE_API_KEY is set but ignored. Using GEMINI_API_KEY only.")
 
 rewriter = GeminiRewriter(api_key=settings.gemini_api_key, model=settings.gemini_model)
+_request_windows: Dict[str, Deque[float]] = defaultdict(deque)
+
+
+def _prune_old_files() -> None:
+    threshold_seconds = settings.file_retention_hours * 3600
+    now = time.time()
+    for folder in (UPLOADS_DIR, OUTPUTS_DIR):
+        for path in folder.glob("*"):
+            if not path.is_file():
+                continue
+            age = now - path.stat().st_mtime
+            if age > threshold_seconds:
+                try:
+                    path.unlink()
+                except OSError:
+                    logger.warning("Failed to delete expired file: %s", path)
+
+
+def _get_basic_auth_parts(request: Request) -> tuple[str, str] | None:
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Basic "):
+        return None
+    import base64
+
+    token = auth_header.removeprefix("Basic ").strip()
+    if not token:
+        return None
+    try:
+        raw = base64.b64decode(token).decode("utf-8")
+    except Exception:
+        return None
+    if ":" not in raw:
+        return None
+    username, password = raw.split(":", 1)
+    return username, password
+
+
+def _auth_failed_response() -> Response:
+    return Response(
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="ResumeChanger"'},
+    )
+
+
+@app.middleware("http")
+async def add_security_guards(request: Request, call_next):
+    if request.url.path.startswith("/static"):
+        return await call_next(request)
+
+    if auth_enabled:
+        auth_parts = _get_basic_auth_parts(request)
+        if not auth_parts:
+            return _auth_failed_response()
+        username, password = auth_parts
+        if not (
+            secrets.compare_digest(username, settings.app_username)
+            and secrets.compare_digest(password, settings.app_password)
+        ):
+            return _auth_failed_response()
+
+    client_host = request.client.host if request.client else "unknown"
+    now = time.time()
+    window = _request_windows[client_host]
+    while window and (now - window[0]) > 60:
+        window.popleft()
+    if len(window) >= settings.rate_limit_per_minute:
+        return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded. Try again shortly."})
+    window.append(now)
+
+    return await call_next(request)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -59,8 +137,13 @@ def show_form(request: Request):
 
 @app.post("/extract", response_class=HTMLResponse)
 async def extract(request: Request, file: UploadFile = File(...), job_description: str = Form(...)):
+    _prune_old_files()
+    ext = Path(file.filename or "").suffix.lower()
+    if ext not in {".docx", ".pdf"}:
+        raise HTTPException(status_code=400, detail="Unsupported file type. Upload .docx or .pdf.")
+
     file_id = uuid4().hex
-    input_path = UPLOADS_DIR / f"{file_id}.docx"
+    input_path = UPLOADS_DIR / f"{file_id}{ext}"
     input_path.write_bytes(await file.read())
 
     blocks = extract_blocks(str(input_path))
@@ -71,6 +154,7 @@ async def extract(request: Request, file: UploadFile = File(...), job_descriptio
             "request": request,
             "blocks": blocks,
             "file_id": file_id,
+            "file_ext": ext,
             "job_description": job_description,
             "protected_ids": protected_ids,
             "rewrite_count": len(rewrite_candidates),
@@ -79,9 +163,20 @@ async def extract(request: Request, file: UploadFile = File(...), job_descriptio
 
 
 @app.post("/tailor")
-def tailor(request: Request, file_id: str = Form(...), job_description: str = Form(...)):
-    input_path = UPLOADS_DIR / f"{file_id}.docx"
+def tailor(
+    request: Request,
+    file_id: str = Form(...),
+    file_ext: str = Form(...),
+    job_description: str = Form(...),
+):
+    _prune_old_files()
+    ext = file_ext.lower().strip()
+    if ext not in {".docx", ".pdf"}:
+        raise HTTPException(status_code=400, detail="Unsupported source format.")
+    input_path = UPLOADS_DIR / f"{file_id}{ext}"
     output_path = OUTPUTS_DIR / f"{file_id}_tailored.docx"
+    if not input_path.exists():
+        raise HTTPException(status_code=404, detail="Source file not found.")
 
     blocks = extract_blocks(str(input_path))
     rewrite_candidates, protected_ids = choose_rewrite_candidates(blocks)
@@ -119,6 +214,7 @@ def tailor(request: Request, file_id: str = Form(...), job_description: str = Fo
         {
             "request": request,
             "file_id": file_id,
+            "source_format": ext,
             "total_blocks": len(blocks),
             "protected_count": len(protected_ids),
             "candidates_count": len(candidate_blocks),
@@ -131,6 +227,7 @@ def tailor(request: Request, file_id: str = Form(...), job_description: str = Fo
 
 @app.get("/download/{file_id}")
 def download(file_id: str):
+    _prune_old_files()
     output_path = OUTPUTS_DIR / f"{file_id}_tailored.docx"
     if not output_path.exists():
         raise HTTPException(status_code=404, detail="Tailored file not found.")
@@ -148,11 +245,10 @@ def health():
 
 @app.get("/debug/gemini")
 def debug_gemini():
+    _prune_old_files()
     current = get_settings()
     temp_rewriter = GeminiRewriter(
         api_key=current.gemini_api_key,
         model=current.gemini_model,
     )
     return temp_rewriter.smoke_test()
-
-#ok whats next

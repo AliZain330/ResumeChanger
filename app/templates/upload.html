@@ -11,8 +11,8 @@
       <h1>Upload Resume</h1>
 
       <form method="post" action="/extract" enctype="multipart/form-data">
-        <label>Resume (.docx)</label>
-        <input type="file" name="file" accept=".docx" required />
+        <label>Resume (.docx or .pdf)</label>
+        <input type="file" name="file" accept=".docx,.pdf,application/pdf" required />
 
         <label>Job Description</label>
         <textarea name="job_description" rows="8" placeholder="Paste the job description here..." required></textarea>

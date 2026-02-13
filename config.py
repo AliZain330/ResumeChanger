@@ -46,6 +46,21 @@ for _k, _v in _file_env.items():
 class Settings:
     gemini_api_key: str
     gemini_model: str
+    app_username: str
+    app_password: str
+    rate_limit_per_minute: int
+    file_retention_hours: int
+
+
+def _read_int_env(name: str, default: int, min_value: int = 1) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return max(value, min_value)
 
 
 def get_settings() -> Settings:
@@ -67,4 +82,16 @@ def get_settings() -> Settings:
     if not model:
         model = "gemini-3-flash-preview"
 
-    return Settings(gemini_api_key=gemini_key, gemini_model=model)
+    app_username = os.getenv("APP_BASIC_AUTH_USER", "").strip()
+    app_password = os.getenv("APP_BASIC_AUTH_PASS", "").strip()
+    rate_limit_per_minute = _read_int_env("RATE_LIMIT_PER_MINUTE", default=30, min_value=1)
+    file_retention_hours = _read_int_env("FILE_RETENTION_HOURS", default=24, min_value=1)
+
+    return Settings(
+        gemini_api_key=gemini_key,
+        gemini_model=model,
+        app_username=app_username,
+        app_password=app_password,
+        rate_limit_per_minute=rate_limit_per_minute,
+        file_retention_hours=file_retention_hours,
+    )

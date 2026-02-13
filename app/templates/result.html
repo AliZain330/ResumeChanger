@@ -17,12 +17,19 @@
       {% endif %}
 
       <div class="card">
+        <p>Source format: {{ source_format }}</p>
         <p>Total blocks: {{ total_blocks }}</p>
         <p>Protected blocks: {{ protected_count }}</p>
         <p>Rewrite candidates: {{ candidates_count }}</p>
         <p>Rewritten: {{ rewritten_count }}</p>
         <p>Skipped: {{ skipped_count }}</p>
       </div>
+
+      {% if source_format == ".pdf" %}
+      <div class="card">
+        <p>PDF input is exported as DOCX after tailoring.</p>
+      </div>
+      {% endif %}
 
       <div class="actions">
         <a href="/download/{{ file_id }}">Download tailored DOCX</a>

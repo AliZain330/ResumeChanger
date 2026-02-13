@@ -12,6 +12,7 @@
 
       <form method="post" action="/tailor">
         <input type="hidden" name="file_id" value="{{ file_id }}" />
+        <input type="hidden" name="file_ext" value="{{ file_ext }}" />
 
         <label>Job Description</label>
         <textarea name="job_description" rows="8" required>{{ job_description }}</textarea>
