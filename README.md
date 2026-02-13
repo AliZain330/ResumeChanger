@@ -4,7 +4,9 @@ Web app that tailors resumes to a job description using Gemini.
 
 ### Features
 
-- Upload `.docx` or `.pdf` resume files.
+- Upload one or more `.docx` or `.pdf` resume files.
+- Paste the job description text or upload one or more job description images.
+- Add optional special instructions to guide rewriting.
 - Extract text blocks and classify them as paragraph/bullet.
 - Protect likely sensitive/structural blocks (top lines, contact data, headings).
 - Rewrite candidate blocks with Gemini and strict constraints.
@@ -31,8 +33,7 @@ Web app that tailors resumes to a job description using Gemini.
 ### Endpoints
 
 - `GET /` upload form
-- `POST /extract` parse blocks and preview protection
-- `POST /tailor` run Gemini tailoring and generate output
+- `POST /tailor` run one-step Gemini tailoring and generate output
 - `GET /download/{file_id}` download tailored DOCX
 - `GET /health` health check
 - `GET /debug/gemini` Gemini connectivity smoke test

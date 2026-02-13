@@ -3,21 +3,43 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Upload DOCX</title>
+    <title>Tailor Resume</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
     <div class="container">
-      <h1>Upload Resume</h1>
+      <h1>Tailor Resume</h1>
 
-      <form method="post" action="/extract" enctype="multipart/form-data">
-        <label>Resume (.docx or .pdf)</label>
-        <input type="file" name="file" accept=".docx,.pdf,application/pdf" required />
+      <form method="post" action="/tailor" enctype="multipart/form-data">
+        <label>Resume files (.docx or .pdf)</label>
+        <input type="file" name="files" accept=".docx,.pdf,application/pdf" multiple required />
 
-        <label>Job Description</label>
-        <textarea name="job_description" rows="8" placeholder="Paste the job description here..." required></textarea>
+        <label>Job Description (paste text)</label>
+        <textarea name="job_description" rows="8" placeholder="Paste the job description here..."></textarea>
 
-        <button type="submit">Extract Blocks</button>
+        <label>Or upload job description images (PNG/JPG/WEBP)</label>
+        <input
+          type="file"
+          name="job_description_images"
+          accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+          multiple
+        />
+
+        <label>Special instructions for AI (optional)</label>
+        <textarea
+          name="special_instructions"
+          rows="4"
+          placeholder="Example: Focus more on leadership and cross-functional collaboration while keeping all facts unchanged."
+        ></textarea>
+
+        <label>Output file name (optional)</label>
+        <input
+          type="text"
+          name="output_name"
+          placeholder="Example: John_Smith_Resume_Tailored"
+        />
+
+        <button type="submit">Tailor Resume</button>
       </form>
     </div>
   </body>

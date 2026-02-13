@@ -10,9 +10,18 @@ from docx import Document
 def _is_bullet(paragraph) -> bool:
     try:
         ppr = paragraph._p.pPr
-        return ppr is not None and ppr.numPr is not None
+        if ppr is not None and ppr.numPr is not None:
+            return True
     except Exception:
-        return False
+        pass
+    try:
+        style_name = (paragraph.style.name or "").strip().lower()
+        if "bullet" in style_name:
+            return True
+    except Exception:
+        pass
+    text = (paragraph.text or "").lstrip()
+    return bool(re.match(r"^(?:[-*•]\s+|\d+[\.\)]\s+)", text))
 
 
 def _extract_docx_blocks(docx_path: str) -> List[Dict[str, str]]:
@@ -36,6 +45,20 @@ def _extract_docx_blocks(docx_path: str) -> List[Dict[str, str]]:
 
 def _normalize_line(text: str) -> str:
     return " ".join(text.strip().split())
+
+
+def _normalize_rewrite_text(text: str) -> str:
+    # Keep content on one visual line to avoid accidental extra spacing in Word.
+    return " ".join(text.replace("\r", " ").replace("\n", " ").split())
+
+
+def _textual_bullet_prefix(text: str) -> str:
+    match = re.match(r"^(\s*(?:[-*•]\s+|\d+[\.\)]\s+))", text or "")
+    return match.group(1) if match else ""
+
+
+def _strip_textual_bullet_prefix(text: str) -> str:
+    return re.sub(r"^\s*(?:[-*•]\s+|\d+[\.\)]\s+)", "", text or "").strip()
 
 
 def _extract_pdf_blocks(pdf_path: str) -> List[Dict[str, str]]:
@@ -76,33 +99,22 @@ def extract_blocks(input_path: str) -> List[Dict[str, str]]:
 
 
 def _replace_paragraph_text_preserving_runs(paragraph, new_text: str) -> None:
+    clean_text = _normalize_rewrite_text(new_text)
     if not paragraph.runs:
-        paragraph.add_run(new_text)
-        return
-    if len(paragraph.runs) == 1:
-        paragraph.runs[0].text = new_text
+        paragraph.add_run(clean_text)
         return
 
-    run_lengths = [max(len(run.text), 1) for run in paragraph.runs]
-    total = sum(run_lengths)
-    if total <= 0:
-        paragraph.runs[0].text = new_text
-        for run in paragraph.runs[1:]:
-            run.text = ""
-        return
-
-    new_len = len(new_text)
-    boundaries = [0]
-    consumed = 0
-    for length in run_lengths[:-1]:
-        consumed += length
-        boundaries.append(round((consumed / total) * new_len))
-    boundaries.append(new_len)
-
+    # Use the first non-empty run as style anchor so font/size remain stable.
+    anchor_index = 0
     for idx, run in enumerate(paragraph.runs):
-        start = boundaries[idx]
-        end = boundaries[idx + 1]
-        run.text = new_text[start:end]
+        if run.text.strip():
+            anchor_index = idx
+            break
+
+    paragraph.runs[anchor_index].text = clean_text
+    for idx, run in enumerate(paragraph.runs):
+        if idx != anchor_index:
+            run.text = ""
 
 
 def _apply_docx_updates(input_docx_path: str, output_docx_path: str, updates: Dict[str, str]) -> None:
@@ -120,7 +132,15 @@ def _apply_docx_updates(input_docx_path: str, output_docx_path: str, updates: Di
         if block_id not in updates:
             continue
 
-        _replace_paragraph_text_preserving_runs(paragraph, updates[block_id])
+        original_text = paragraph.text or ""
+        new_text = updates[block_id]
+
+        # If user typed bullets as literal text (e.g. "• "), preserve that prefix.
+        prefix = _textual_bullet_prefix(original_text)
+        if prefix:
+            new_text = f"{prefix}{_strip_textual_bullet_prefix(new_text)}"
+
+        _replace_paragraph_text_preserving_runs(paragraph, new_text)
 
     document.save(output_docx_path)
 

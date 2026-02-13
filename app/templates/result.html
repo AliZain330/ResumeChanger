@@ -10,30 +10,93 @@
     <div class="container">
       <h1>Tailoring Result</h1>
 
-      {% if warning %}
       <div class="card">
-        <p>{{ warning }}</p>
-      </div>
-      {% endif %}
-
-      <div class="card">
-        <p>Source format: {{ source_format }}</p>
-        <p>Total blocks: {{ total_blocks }}</p>
-        <p>Protected blocks: {{ protected_count }}</p>
-        <p>Rewrite candidates: {{ candidates_count }}</p>
-        <p>Rewritten: {{ rewritten_count }}</p>
-        <p>Skipped: {{ skipped_count }}</p>
+        <p>Job description source: {% if used_image_job_description %}image upload{% else %}pasted text{% endif %}</p>
+        <p>Special instructions: {% if special_instructions_used %}applied{% else %}none{% endif %}</p>
       </div>
 
-      {% if source_format == ".pdf" %}
+      {% for result in results %}
       <div class="card">
+        <p><strong>File:</strong> {{ result.original_filename }}</p>
+        <p>Source format: {{ result.source_format }}</p>
+        <p>Total blocks: {{ result.total_blocks }}</p>
+        <p>Protected blocks: {{ result.protected_count }}</p>
+        <p>Rewrite candidates: {{ result.candidates_count }}</p>
+        <p>Rewritten: {{ result.rewritten_count }}</p>
+        <p>Skipped: {{ result.skipped_count }}</p>
+        {% if result.warning %}
+        <p>{{ result.warning }}</p>
+        {% endif %}
+        {% if result.source_format == ".pdf" %}
         <p>PDF input is exported as DOCX after tailoring.</p>
+        {% endif %}
+        <p><a href="/download/{{ result.file_id }}?name={{ result.download_name }}">Download tailored DOCX ({{ result.download_name }})</a></p>
+      </div>
+
+      {% if result.analysis.positioning_angle %}
+      <div class="card">
+        <p><strong>Positioning angle:</strong> {{ result.analysis.positioning_angle }}</p>
       </div>
       {% endif %}
 
-      <div class="actions">
-        <a href="/download/{{ file_id }}">Download tailored DOCX</a>
+      {% if result.analysis.must_match_signals %}
+      <div class="card">
+        <p><strong>Must-match signals</strong></p>
+        <ul>
+          {% for item in result.analysis.must_match_signals %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
       </div>
+      {% endif %}
+
+      {% if result.analysis.nice_to_have_signals %}
+      <div class="card">
+        <p><strong>Nice-to-have signals</strong></p>
+        <ul>
+          {% for item in result.analysis.nice_to_have_signals %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if result.analysis.culture_cues %}
+      <div class="card">
+        <p><strong>Culture/communication cues</strong></p>
+        <ul>
+          {% for item in result.analysis.culture_cues %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if result.analysis.evidence_map %}
+      <div class="card">
+        <p><strong>Evidence map (from source CV)</strong></p>
+        {% for signal, lines in result.analysis.evidence_map.items() %}
+        <p><strong>{{ signal }}</strong></p>
+        <ul>
+          {% for line in lines %}
+          <li>{{ line }}</li>
+          {% endfor %}
+        </ul>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if result.gap_list %}
+      <div class="card">
+        <p><strong>Gap list (not inserted into resume)</strong></p>
+        <ul>
+          {% for gap in result.gap_list %}
+          <li>{{ gap }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% endfor %}
     </div>
   </body>
 </html>
