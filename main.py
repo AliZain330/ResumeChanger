@@ -235,6 +235,8 @@ async def tailor(
     valid_resume_files = [f for f in files if f and f.filename]
     if not valid_resume_files:
         raise HTTPException(status_code=400, detail="Upload at least one resume file (.docx or .pdf).")
+    if len(valid_resume_files) > 1:
+        raise HTTPException(status_code=400, detail="Upload only one resume file at a time.")
 
     resolved_job_description = await _resolve_job_description(job_description, job_description_images)
 
@@ -345,3 +347,5 @@ def debug_gemini():
         model=current.gemini_model,
     )
     return temp_rewriter.smoke_test()
+
+#extra

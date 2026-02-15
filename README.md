@@ -1,10 +1,10 @@
 ## ResumeChanger
 
-Web app that tailors resumes to a job description using Gemini.
+Web app that tailors resumes to a job description.
 
 ### Features
 
-- Upload one or more `.docx` or `.pdf` resume files.
+- Upload one `.docx` or `.pdf` resume file.
 - Paste the job description text or upload one or more job description images.
 - Add optional special instructions to guide rewriting.
 - Extract text blocks and classify them as paragraph/bullet.
