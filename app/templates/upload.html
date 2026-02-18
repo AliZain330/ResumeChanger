@@ -9,7 +9,10 @@
   <body>
     <div class="container">
       <h1>ResumeModifier</h1>
-      <h2>Tailor Resume</h2>
+      <p>
+        This application rewrites your resume for a specific job description while preserving your original facts and formatting.
+        Upload one resume file, provide the job description (paste text or upload image), add optional instructions, and submit to generate a downloadable updated CV.
+      </p>
 
       <form method="post" action="/tailor" enctype="multipart/form-data">
         <label>Resume file (.docx or .pdf)</label>
@@ -40,7 +43,7 @@
           placeholder="Example: John_Smith_Resume_Tailored"
         />
 
-        <button type="submit">Tailor Resume</button>
+        <button type="submit">Generate Updated CV</button>
       </form>
     </div>
   </body>
